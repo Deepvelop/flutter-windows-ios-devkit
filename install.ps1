@@ -53,8 +53,20 @@ try {
     }
     
     $privateKeyPath = Read-Host "📄 Enter the full path to your AuthKey_$keyId.p8 file"
-    if ([string]::IsNullOrWhiteSpace($privateKeyPath) -or !(Test-Path $privateKeyPath)) {
-        throw "Private key file not found. Please provide a valid path to your AuthKey_$keyId.p8 file"
+    if ([string]::IsNullOrWhiteSpace($privateKeyPath)) {
+        throw "Private key path cannot be empty"
+    }
+    
+    # Remove quotes from path if present
+    $privateKeyPath = $privateKeyPath.Trim('"').Trim("'")
+    
+    if (!(Test-Path $privateKeyPath)) {
+        throw "Private key file not found at: $privateKeyPath`nPlease check the file path and try again"
+    }
+    
+    # Verify it's actually a .p8 file
+    if (!(($privateKeyPath -like "*.p8") -and ($privateKeyPath -like "*AuthKey_$keyId*"))) {
+        throw "File must be named AuthKey_$keyId.p8"
     }
     
     $targetDir = "/Users/$macUser/Dev/iOS"
