@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flutter iOS DevKit - Windows to Mac Remote iOS Development</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #e2e8f0;
+            background: #0f172a;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backdrop-filter: blur(100px);
+            -webkit-backdrop-filter: blur(100px);
+            -moz-backdrop-filter: blur(100px);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 60px 0 40px 0;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 40px;
+            color: #94a3b8;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.2);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            -moz-backdrop-filter: blur(40px);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 25px 0;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            pointer-events: none;
+        }
+
+        .install-section h2 {
+            color: #f8fafc;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .install-section p {
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .install-command {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #10b981;
+            padding: 24px;
+            border-radius: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 20px 0;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .copy-btn:hover {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .feature {
+            background: rgba(30, 41, 59, 0.15);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            -moz-backdrop-filter: blur(30px);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            pointer-events: none;
+        }
+
+        .feature:hover {
+            transform: translateY(-4px);
+            border-color: rgba(148, 163, 184, 0.25);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            background: rgba(30, 41, 59, 0.25);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .feature h3 {
+            color: #f8fafc;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .feature p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+        }
+
+        .section-title {
+            color: #f8fafc;
+            margin-bottom: 24px;
+            font-size: 2rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .command-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            margin-top: 30px;
+        }
+
+        .command-item {
+            background: rgba(30, 41, 59, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            -moz-backdrop-filter: blur(25px);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .command-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .command-item:hover {
+            border-color: rgba(148, 163, 184, 0.25);
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.25);
+        }
+
+        .command-item h4 {
+            color: #f8fafc;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .command-code {
+            background: rgba(15, 23, 42, 0.6);
+            color: #10b981;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            margin: 12px 0;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .command-item p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .prerequisites {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .prerequisites h3 {
+            color: #fbbf24;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .prereq-list {
+            list-style: none;
+        }
+
+        .prereq-list li {
+            margin: 12px 0;
+            padding-left: 28px;
+            position: relative;
+            color: #cbd5e1;
+        }
+
+        .prereq-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 24px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-top: 30px;
+        }
+
+        .workflow-step {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            -moz-backdrop-filter: blur(25px);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .workflow-step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .workflow-step:hover {
+            transform: translateY(-4px);
+            border-color: rgba(148, 163, 184, 0.25);
+            background: rgba(30, 41, 59, 0.25);
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .workflow-step h4 {
+            color: #f8fafc;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .workflow-step p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .faq-item {
+            margin: 16px 0;
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 12px;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            -moz-backdrop-filter: blur(25px);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .faq-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .faq-item:hover {
+            background: rgba(30, 41, 59, 0.25);
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .faq-question {
+            font-weight: 600;
+            color: #f8fafc;
+            margin-bottom: 12px;
+        }
+
+        .faq-answer {
+            color: #94a3b8;
+        }
+
+        .faq-answer strong {
+            color: #cbd5e1;
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            padding: 60px 0;
+            border-top: 1px solid rgba(148, 163, 184, 0.1);
+            margin-top: 60px;
+        }
+
+        code {
+            background: rgba(15, 23, 42, 0.6);
+            color: #10b981;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero {
+                padding: 40px 0 30px 0;
+            }
+            
+            .glass-card {
+                padding: 20px;
+                margin: 20px 0;
+            }
+            
+            .command-list {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                margin: 30px 0;
+            }
+
+            .workflow-steps {
+                gap: 14px;
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.4);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+
+        /* Animated blur background */
+        .blur-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: -2;
+        }
+
+        .blur-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backdrop-filter: blur(150px);
+            -webkit-backdrop-filter: blur(150px);
+            -moz-backdrop-filter: blur(150px);
+        }
+
+        .blur {
+            position: absolute;
+            width: var(--size);
+            height: var(--size);
+            border-radius: 50%;
+            z-index: -1;
+            transition: transform 0.2s ease-out;
+            opacity: 0;
+            animation: blurAppear 1.2s ease-out forwards;
+            will-change: transform, opacity;
+        }
+
+        #blur1 {
+            background: red;
+            --size: 12rem;
+            bottom: 280px;
+            right: 180px;
+            animation-delay: 0.3s;
+        }
+
+        #blur2 {
+            background: #ECFF12;
+            --size: 28rem;
+            bottom: -180px;
+            right: 260px;
+            animation-delay: 0.6s;
+        }
+
+        #blur3 {
+            background: blue;
+            --size: 16rem;
+            bottom: -70px;
+            right: -100px;
+            animation-delay: 0.9s;
+        }
+
+        #blur4 {
+            background: #6F1BFF;
+            --size: 14rem;
+            bottom: 170px;
+            right: 20px;
+            animation-delay: 1s;
+        }
+
+        @keyframes blurAppear {
+            0% {
+                opacity: 0;
+                width: calc(var(--size) * 0.8);
+                height: calc(var(--size) * 0.8);
+            }
+            100% {
+                opacity: 1;
+                width: var(--size);
+                height: var(--size);
+            }
+        }
+
+        @media (max-width: 768px) {
+            body::before {
+                backdrop-filter: blur(15px);
+                -webkit-backdrop-filter: blur(15px);
+            }
+
+            .blur-content {
+                backdrop-filter: blur(100px);
+                -webkit-backdrop-filter: blur(100px);
+            }
+
+            .glass-card {
+                backdrop-filter: blur(30px);
+                -webkit-backdrop-filter: blur(30px);
+            }
+
+            .feature, .command-item, .workflow-step, .faq-item {
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+            }
+
+            #blur1 {
+                --size: 8rem;
+                bottom: 200px;
+                right: 120px;
+            }
+
+            #blur2 {
+                --size: 18rem;
+                bottom: -130px;
+                right: 180px;
+            }
+
+            #blur3 {
+                --size: 10rem;
+                bottom: -50px;
+                right: -70px;
+            }
+
+            #blur4 {
+                --size: 9rem;
+                bottom: 120px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="blur-background">
+        <div class="blur-content">
+            <div class="blur" id="blur1"></div>
+            <div class="blur" id="blur3"></div>
+            <div class="blur" id="blur4"></div>
+            <div class="blur" id="blur2"></div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="hero">
+            <h1>🧰 Flutter iOS DevKit</h1>
+            <p>Build and deploy iOS apps from Windows using your Mac remotely</p>
+        </div>
+
+        <div class="glass-card">
+            <h2>🚀 Quick Installation</h2>
+            <p>Run this command in PowerShell as Administrator to install the DevKit:</p>
+            
+            <div class="install-command">
+                <button class="copy-btn" onclick="copyInstallCommand()">Copy</button>
+                <div id="install-cmd">iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/yourusername/flutter-ios-devkit/main/install.ps1'))</div>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ Important:</strong> You must run PowerShell as Administrator for the installation to work properly.
+            </div>
+
+            <div class="prerequisites">
+                <h3>📋 Prerequisites</h3>
+                <ul class="prereq-list">
+                    <li><strong>Windows 10/11</strong> with PowerShell 5.1+</li>
+                    <li><strong>Mac</strong> with SSH enabled and same network</li>
+                    <li><strong>Apple Developer Account</strong> with API keys</li>
+                    <li><strong>Xcode</strong> installed on Mac</li>
+                    <li><strong>OpenSSH Client</strong> on Windows (usually pre-installed)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔗</div>
+                <h3>Remote Development</h3>
+                <p>Develop Flutter iOS apps on Windows while building and testing on your Mac remotely via SSH.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>One-Click Deployment</h3>
+                <p>Build, archive, validate, and upload to TestFlight with simple commands from your Windows machine.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔄</div>
+                <h3>Auto Sync</h3>
+                <p>Automatically sync your project files and detect dependency changes for efficient builds.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🛠️</div>
+                <h3>Complete Toolchain</h3>
+                <p>Automatically installs Flutter, Fastlane, and configures your Mac for iOS development.</p>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2 class="section-title">🔄 How It Works</h2>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <div class="step-number">1</div>
+                    <h4>Setup</h4>
+                    <p>Install DevKit and configure SSH connection to your Mac</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">2</div>
+                    <h4>Initialize</h4>
+                    <p>Run <code>flutter-ios init</code> to set up your project on Mac</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">3</div>
+                    <h4>Develop</h4>
+                    <p>Code on Windows, use <code>flutter-ios sync</code> to update Mac</p>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">4</div>
+                    <h4>Deploy</h4>
+                    <p>Build and deploy to TestFlight with simple commands</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2 class="section-title">📝 Available Commands</h2>
+            <p style="text-align: center; color: #94a3b8; margin-bottom: 20px;">After installation, use these commands from any PowerShell window:</p>
+            
+            <div class="command-list">
+                <div class="command-item">
+                    <h4>Initialize Project</h4>
+                    <div class="command-code">flutter-ios init</div>
+                    <p>Set up a new project (clone from Git or sync current directory)</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Sync Files</h4>
+                    <div class="command-code">flutter-ios sync</div>
+                    <p>Sync current project files to Mac</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Run App</h4>
+                    <div class="command-code">flutter-ios run</div>
+                    <p>Run Flutter app on connected iOS device</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Build App</h4>
+                    <div class="command-code">flutter-ios build</div>
+                    <p>Build iOS app for release</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Create Archive</h4>
+                    <div class="command-code">flutter-ios archive</div>
+                    <p>Create archive for App Store submission</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Validate App</h4>
+                    <div class="command-code">flutter-ios validate</div>
+                    <p>Validate app with App Store Connect</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Upload to TestFlight</h4>
+                    <div class="command-code">flutter-ios upload</div>
+                    <p>Upload app to TestFlight for beta testing</p>
+                </div>
+                
+                <div class="command-item">
+                    <h4>Show Help</h4>
+                    <div class="command-code">flutter-ios</div>
+                    <p>Display all available commands and usage</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2 class="section-title">🔧 Troubleshooting</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: "SSH connection failed" error during installation</div>
+                <div class="faq-answer">
+                    <strong>Solution:</strong> Ensure SSH is enabled on your Mac:
+                    <div class="command-code">System Preferences → Sharing → Remote Login (check enabled)</div>
+                    Verify your Mac's IP address and username are correct.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: "flutter-ios command not found" after installation</div>
+                <div class="faq-answer">
+                    <strong>Solution:</strong> Restart your PowerShell terminal or run:
+                    <div class="command-code">. $PROFILE</div>
+                    This reloads your PowerShell profile with the new commands.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: Build fails with Xcode errors</div>
+                <div class="faq-answer">
+                    <strong>Solution:</strong> Ensure Xcode Command Line Tools are installed on Mac:
+                    <div class="command-code">xcode-select --install</div>
+                    Also verify your Apple Developer certificates are properly configured.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: TestFlight upload fails with authentication error</div>
+                <div class="faq-answer">
+                    <strong>Solution:</strong> Verify your Apple API Key and Issuer ID are correct. Download your AuthKey_XXXXXXXXXX.p8 file and place it in:
+                    <div class="command-code">~/.appstoreconnect/private_keys/</div>
+                    on your Mac.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: How do I update the DevKit?</div>
+                <div class="faq-answer">
+                    <strong>Solution:</strong> Simply run the installation command again. It will update all components to the latest version.
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Flutter iOS DevKit - Streamline your cross-platform development workflow</p>
+            <p>Built with ❤️ for the Flutter community</p>
+        </div>
+    </div>
+
+    <script>
+        function copyInstallCommand() {
+            const command = document.getElementById('install-cmd').textContent;
+            navigator.clipboard.writeText(command).then(function() {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'rgba(16, 185, 129, 0.4)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = 'rgba(16, 185, 129, 0.2)';
+                }, 2000);
+            });
+        }
+
+        // Add smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Blur animation system - exact Vue component replica
+        document.addEventListener('DOMContentLoaded', function() {
+            const banner = document.body;
+            const blur1 = document.getElementById('blur1');
+            const blur2 = document.getElementById('blur2');
+            const blur3 = document.getElementById('blur3');
+            const blur4 = document.getElementById('blur4');
+            
+            // Movement size configuration - exactly from Vue component
+            const movementSizes = {
+                float1: 40,
+                float2: 50,
+                float3: 60,
+                float4: 30
+            };
+
+            let mouseX = 0;
+            let mouseY = 0;
+            let animationFrame;
+            let time = 0;
+
+            // Handle mouse movement - exactly like Vue component
+            const handleMouseMove = (e) => {
+                const rect = banner.getBoundingClientRect();
+                mouseX = ((e.clientX - rect.left) / rect.width - 0.5) * 2; // -1 to 1
+                mouseY = ((e.clientY - rect.top) / rect.height - 0.5) * 2; // -1 to 1
+            };
+
+            banner.addEventListener('mousemove', handleMouseMove);
+
+            // Animation function - exactly from Vue component
+            const animate = () => {
+                if (blur1 && blur2 && blur3 && blur4) {
+                    time += 0.01;
+                    
+                    // Create continuous floating movement - exact Vue logic
+                    const float1 = {
+                        x: Math.sin(time * 0.5) * movementSizes.float1,
+                        y: Math.cos(time * 0.7) * movementSizes.float1
+                    };
+                    const float2 = {
+                        x: Math.sin(time * 0.3) * movementSizes.float2,
+                        y: Math.cos(time * 0.5) * movementSizes.float2
+                    };
+                    const float3 = {
+                        x: Math.sin(time * 0.4) * movementSizes.float3,
+                        y: Math.cos(time * 0.6) * movementSizes.float3
+                    };
+                    const float4 = {
+                        x: Math.sin(time * 0.6) * movementSizes.float4,
+                        y: Math.cos(time * 0.4) * movementSizes.float4
+                    };
+
+                    // Combine mouse movement with floating movement - exact Vue logic
+                    const move1 = { 
+                        x: mouseX * 50 + float1.x, 
+                        y: mouseY * 50 + float1.y 
+                    };
+                    const move2 = { 
+                        x: mouseX * 30 + float2.x, 
+                        y: mouseY * 30 + float2.y 
+                    };
+                    const move3 = { 
+                        x: mouseX * 100 + float3.x, 
+                        y: mouseY * 100 + float3.y 
+                    };
+                    const move4 = { 
+                        x: mouseX * 80 + float4.x, 
+                        y: mouseY * 80 + float4.y 
+                    };
+
+                    // Apply movement using translate3d for better performance
+                    blur1.style.transform = `translate3d(${move1.x}px, ${move1.y}px, 0)`;
+                    blur2.style.transform = `translate3d(${move2.x}px, ${move2.y}px, 0)`;
+                    blur3.style.transform = `translate3d(${move3.x}px, ${move3.y}px, 0)`;
+                    blur4.style.transform = `translate3d(${move4.x}px, ${move4.y}px, 0)`;
+                }
+                animationFrame = requestAnimationFrame(animate);
+            };
+
+            // Start animation
+            animate();
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
