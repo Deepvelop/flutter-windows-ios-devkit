@@ -42,6 +42,9 @@ try {
         throw "Mac username cannot be empty"
     }
     
+    $macPassword = Read-Host "🔒 Enter your Mac password (needed for Homebrew installation)" -AsSecureString
+    $macPasswordPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($macPassword))
+    
     $keyId = Read-Host "🔑 Enter your Apple App Store Connect Key ID (e.g., ABC123DEFG)"
     if ([string]::IsNullOrWhiteSpace($keyId)) {
         throw "Apple Key ID cannot be empty"
@@ -85,7 +88,7 @@ try {
     
     Write-Host "💡 Make sure SSH is enabled on your Mac:" -ForegroundColor Yellow
     Write-Host "   System Preferences → Sharing → Remote Login (check enabled)" -ForegroundColor White
-    Write-Host "   You'll be prompted for your Mac password during setup" -ForegroundColor White
+    Write-Host "   Make sure you have admin privileges on your Mac" -ForegroundColor White
     
     $continue = Read-Host "Press Enter when SSH is enabled on your Mac and you're ready to continue"
     
@@ -154,31 +157,72 @@ try {
 #!/bin/bash
 set -e
 
+echo "Setting up directories..."
 mkdir -p "$targetDir"
 cd "$targetDir"
+
+# Function to run sudo commands with password
+run_sudo() {
+    echo "$macPasswordPlain" | sudo -S "`$@"
+}
+
+# Install Xcode command line tools first (needed for Homebrew)
+if ! xcode-select -p &> /dev/null; then
+  echo "Installing Xcode command line tools..."
+  # This will prompt user to install via GUI
+  xcode-select --install 2>/dev/null || echo "Xcode command line tools installation initiated"
+  echo "Please install Xcode command line tools if prompted and press any key to continue..."
+  read -n 1 -s
+fi
 
 # Install Homebrew if missing
 if ! command -v brew &> /dev/null; then
   echo "Installing Homebrew..."
+  # Use non-interactive installation
+  export NONINTERACTIVE=1
+  export CI=1
   /bin/bash -c "`$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  
+  # Add Homebrew to PATH for this session
+  if [[ -f "/opt/homebrew/bin/brew" ]]; then
+    eval "`$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -f "/usr/local/bin/brew" ]]; then
+    eval "`$(/usr/local/bin/brew shellenv)"
+  fi
+fi
+
+# Fix Homebrew permissions if needed
+if command -v brew &> /dev/null; then
+  echo "Checking Homebrew permissions..."
+  BREW_PREFIX="`$(brew --prefix)"
+  if [[ ! -w "`$BREW_PREFIX" ]]; then
+    echo "Fixing Homebrew permissions..."
+    run_sudo chown -R "`$(whoami):admin" "`$BREW_PREFIX" 2>/dev/null || true
+  fi
 fi
 
 # Install Flutter only if missing
 if ! command -v flutter &> /dev/null; then
   echo "Installing Flutter..."
-  brew install --cask flutter
+  brew install --cask flutter || {
+    echo "Trying alternative Flutter installation..."
+    cd /tmp
+    curl -o flutter.zip https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_stable.zip
+    unzip -q flutter.zip
+    run_sudo mv flutter /usr/local/
+    export PATH="/usr/local/flutter/bin:`$PATH"
+    echo 'export PATH="/usr/local/flutter/bin:`$PATH"' >> ~/.zshrc
+    echo 'export PATH="/usr/local/flutter/bin:`$PATH"' >> ~/.bash_profile
+  }
 fi
 
 # Install Fastlane only if missing
 if ! command -v fastlane &> /dev/null; then
   echo "Installing Fastlane..."
-  brew install fastlane
-fi
-
-# Install Xcode command line tools if needed
-if ! xcode-select -p &> /dev/null; then
-  echo "Installing Xcode command line tools..."
-  xcode-select --install || true
+  brew install fastlane || {
+    echo "Installing Fastlane via gem..."
+    run_sudo gem install fastlane
+  }
 fi
 
 # Create App Store Connect private keys directory
@@ -221,6 +265,8 @@ FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=""
 FASTLANE_SESSION=""
 FASTLANE_TEAM_ID=""
 EOL
+
+echo "Mac setup completed successfully!"
 "@
 
     $tempScript = "$env:TEMP\mac_setup.sh"
@@ -231,16 +277,37 @@ EOL
         throw "Failed to copy setup script to Mac"
     }
     
+    Write-Host "🍎 Running Mac setup script (this may take a few minutes)..." -ForegroundColor Yellow
     $sshResult = ssh "$macUser@$macIP" "chmod +x /tmp/mac_setup.sh && /tmp/mac_setup.sh"
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to execute setup script on Mac"
+        Write-Host "⚠️  Automated setup failed. Let's try manual setup..." -ForegroundColor Yellow
+        
+        Write-Host "Please run these commands manually on your Mac:" -ForegroundColor Cyan
+        Write-Host "1. Install Xcode command line tools: xcode-select --install" -ForegroundColor White
+        Write-Host "2. Install Homebrew: /bin/bash -c `"`$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)`"" -ForegroundColor White
+        Write-Host "3. Install Flutter: brew install --cask flutter" -ForegroundColor White
+        Write-Host "4. Install Fastlane: brew install fastlane" -ForegroundColor White
+        
+        $manualContinue = Read-Host "Press Enter after completing these steps manually"
+        
+        # Verify tools are installed
+        Write-Host "🔍 Verifying installation..." -ForegroundColor Yellow
+        $verifyResult = ssh "$macUser@$macIP" "command -v brew && command -v flutter && command -v fastlane"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️  Some tools may not be installed properly, but continuing..." -ForegroundColor Yellow
+        }
     }
     
     Write-Host "✅ Mac environment setup completed" -ForegroundColor Green
 }
 catch {
     Write-Host "❌ Error setting up Mac environment: $_" -ForegroundColor Red
-    Write-Host "💡 Make sure your Mac has internet connection and proper permissions" -ForegroundColor Yellow
+    Write-Host "💡 Troubleshooting Mac setup issues:" -ForegroundColor Yellow
+    Write-Host "   1. Make sure your Mac password is correct" -ForegroundColor White
+    Write-Host "   2. Ensure your Mac has internet connection" -ForegroundColor White
+    Write-Host "   3. Check if Xcode command line tools are installed" -ForegroundColor White
+    Write-Host "   4. Try running: xcode-select --install" -ForegroundColor White
+    Write-Host "   5. Manual Homebrew install: /bin/bash -c `"`$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)`"" -ForegroundColor White
     exit 1
 }
 
