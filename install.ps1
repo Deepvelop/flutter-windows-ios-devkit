@@ -83,6 +83,12 @@ catch {
 try {
     Write-Host "\n🔐 Setting up SSH authentication..." -ForegroundColor Cyan
     
+    Write-Host "💡 Make sure SSH is enabled on your Mac:" -ForegroundColor Yellow
+    Write-Host "   System Preferences → Sharing → Remote Login (check enabled)" -ForegroundColor White
+    Write-Host "   You'll be prompted for your Mac password during setup" -ForegroundColor White
+    
+    $continue = Read-Host "Press Enter when SSH is enabled on your Mac and you're ready to continue"
+    
     if (!(Test-Path "$sshKeyPath.pub")) {
         Write-Host "🔐 Generating SSH Key..."
         $sshResult = ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N ""
@@ -94,16 +100,49 @@ try {
     }
 
     Write-Host "🚀 Copying SSH Key to Mac..."
-    $copyResult = ssh-copy-id "$macUser@$macIP"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to copy SSH key to Mac. Please check your Mac IP and username."
+    
+    # Read the public key content
+    $publicKeyContent = Get-Content "$sshKeyPath.pub" -Raw
+    if ([string]::IsNullOrWhiteSpace($publicKeyContent)) {
+        throw "Failed to read SSH public key"
+    }
+    
+    # Copy public key to Mac and add to authorized_keys
+    try {
+        # First, try to create .ssh directory on Mac (in case it doesn't exist)
+        ssh "$macUser@$macIP" "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create .ssh directory on Mac"
+        }
+        
+        # Append the public key to authorized_keys
+        $escapedKey = $publicKeyContent.Replace('"', '\"').Replace('$', '\$').Replace('`', '\`')
+        ssh "$macUser@$macIP" "echo `"$escapedKey`" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to add public key to authorized_keys"
+        }
+        
+        # Test the SSH connection without password
+        Write-Host "🔍 Testing SSH key authentication..."
+        ssh -o BatchMode=yes -o ConnectTimeout=10 "$macUser@$macIP" "echo 'SSH key authentication successful'"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️  SSH key may not be working yet. You might need to enter your password for subsequent commands." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        throw "Failed to setup SSH key authentication: $_"
     }
     
     Write-Host "✅ SSH authentication configured successfully" -ForegroundColor Green
 }
 catch {
     Write-Host "❌ Error setting up SSH: $_" -ForegroundColor Red
-    Write-Host "💡 Make sure SSH is enabled on your Mac and the IP/username are correct" -ForegroundColor Yellow
+    Write-Host "💡 Troubleshooting SSH issues:" -ForegroundColor Yellow
+    Write-Host "   1. Verify SSH is enabled: System Preferences → Sharing → Remote Login" -ForegroundColor White
+    Write-Host "   2. Check Mac IP address: System Preferences → Network" -ForegroundColor White
+    Write-Host "   3. Verify Mac username is correct" -ForegroundColor White
+    Write-Host "   4. Try pinging your Mac: ping $macIP" -ForegroundColor White
+    Write-Host "   5. Test SSH manually: ssh $macUser@$macIP" -ForegroundColor White
     exit 1
 }
 
