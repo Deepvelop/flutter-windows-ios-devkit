@@ -22,6 +22,13 @@ if (-not (Test-Administrator)) {
 Write-Host "\n🧰 Flutter iOS DevKit Complete Installer (Windows -> Mac)\n" -ForegroundColor Cyan
 Write-Host "🛡️  Running with Administrator privileges" -ForegroundColor Green
 
+Write-Host "\n📋 Prerequisites for App Store Connect API:" -ForegroundColor Yellow
+Write-Host "  1. Go to App Store Connect → Users and Access → Keys" -ForegroundColor White
+Write-Host "  2. Create an API Key with App Manager or Developer role" -ForegroundColor White
+Write-Host "  3. Download the AuthKey_XXXXXXXXXX.p8 file to your computer" -ForegroundColor White
+Write-Host "  4. Note the Key ID (10 characters) and Issuer ID (UUID) from the page" -ForegroundColor White
+Write-Host "  5. Have the full path to your .p8 file ready" -ForegroundColor White
+
 # === Collect Info ===
 try {
     Write-Host "\n📝 Collecting configuration information..." -ForegroundColor Cyan
@@ -35,14 +42,19 @@ try {
         throw "Mac username cannot be empty"
     }
     
-    $apiKey = Read-Host "🔑 Enter your Apple API Key (for TestFlight)"
-    if ([string]::IsNullOrWhiteSpace($apiKey)) {
-        throw "Apple API Key cannot be empty"
+    $keyId = Read-Host "🔑 Enter your Apple App Store Connect Key ID (e.g., ABC123DEFG)"
+    if ([string]::IsNullOrWhiteSpace($keyId)) {
+        throw "Apple Key ID cannot be empty"
     }
     
-    $apiIssuer = Read-Host "🏢 Enter your Apple API Issuer ID"
-    if ([string]::IsNullOrWhiteSpace($apiIssuer)) {
-        throw "Apple API Issuer ID cannot be empty"
+    $issuerId = Read-Host "🏢 Enter your Apple Issuer ID (from App Store Connect)"
+    if ([string]::IsNullOrWhiteSpace($issuerId)) {
+        throw "Apple Issuer ID cannot be empty"
+    }
+    
+    $privateKeyPath = Read-Host "📄 Enter the full path to your AuthKey_$keyId.p8 file"
+    if ([string]::IsNullOrWhiteSpace($privateKeyPath) -or !(Test-Path $privateKeyPath)) {
+        throw "Private key file not found. Please provide a valid path to your AuthKey_$keyId.p8 file"
     }
     
     $targetDir = "/Users/$macUser/Dev/iOS"
@@ -118,20 +130,45 @@ if ! xcode-select -p &> /dev/null; then
   xcode-select --install || true
 fi
 
+# Create App Store Connect private keys directory
+mkdir -p "\$HOME/.appstoreconnect/private_keys"
+
 # Setup Fastlane template
 mkdir -p fastlane
 cat > fastlane/Fastfile <<EOL
 platform :ios do
-  desc "Push to TestFlight"
+  desc "Build and push to TestFlight"
   lane :beta do
-    build_app(scheme: ENV['SCHEME'])
-    upload_to_testflight(api_key: {
-      key_id: "$apiKey",
-      issuer_id: "$apiIssuer",
-      key_content: File.read(ENV['HOME'] + "/.appstoreconnect/private_keys/AuthKey_$apiKey.p8")
-    })
+    # Build the app
+    build_app(
+      scheme: ENV['SCHEME'] || "Runner",
+      export_method: "app-store",
+      output_directory: "./build/ios/archive"
+    )
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      api_key_path: ENV['HOME'] + "/.appstoreconnect/private_keys/AuthKey_$keyId.p8",
+      skip_waiting_for_build_processing: true
+    )
+  end
+  
+  desc "Just build the app"
+  lane :build_only do
+    build_app(
+      scheme: ENV['SCHEME'] || "Runner",
+      export_method: "app-store",
+      output_directory: "./build/ios/archive"
+    )
   end
 end
+EOL
+
+# Create .env file for Fastlane
+cat > fastlane/.env <<EOL
+FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=""
+FASTLANE_SESSION=""
+FASTLANE_TEAM_ID=""
 EOL
 "@
 
@@ -153,6 +190,33 @@ EOL
 catch {
     Write-Host "❌ Error setting up Mac environment: $_" -ForegroundColor Red
     Write-Host "💡 Make sure your Mac has internet connection and proper permissions" -ForegroundColor Yellow
+    exit 1
+}
+
+# === Upload Apple Private Key ===
+try {
+    Write-Host "\n🔐 Installing Apple App Store Connect private key..." -ForegroundColor Cyan
+    
+    $keyFileName = "AuthKey_$keyId.p8"
+    $macKeyPath = "/Users/$macUser/.appstoreconnect/private_keys/$keyFileName"
+    
+    # Copy the private key to Mac
+    $scpResult = scp $privateKeyPath "${macUser}@${macIP}:$macKeyPath"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to copy private key to Mac"
+    }
+    
+    # Set proper permissions on the private key
+    $sshResult = ssh "$macUser@$macIP" "chmod 600 $macKeyPath"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to set permissions on private key"
+    }
+    
+    Write-Host "✅ Apple private key installed successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host "❌ Error installing Apple private key: $_" -ForegroundColor Red
+    Write-Host "💡 Make sure your private key file path is correct and accessible" -ForegroundColor Yellow
     exit 1
 }
 
@@ -191,16 +255,25 @@ case "`$1" in
     flutter build ios
     ;;
   archive)
-    xcodebuild -workspace ios/Runner.xcworkspace -scheme `$APP_PATH -sdk iphoneos -configuration Release archive -archivePath "`$HOME/Archives/`$APP_PATH.xcarchive"
+    flutter build ios
+    cd ios
+    fastlane build_only
     ;;
-  validate)
-    xcrun altool --validate-app -f "`$HOME/Archives/`$APP_PATH.xcarchive/Products/Applications/Runner.app" -t ios --apiKey $apiKey --apiIssuer $apiIssuer
+  validate|upload)
+    flutter build ios
+    cd ios
+    echo "[🚀] Building and uploading to TestFlight..."
+    fastlane beta
     ;;
-  upload)
-    xcrun altool --upload-app -f "`$HOME/Archives/`$APP_PATH.xcarchive/Products/Applications/Runner.app" -t ios --apiKey $apiKey --apiIssuer $apiIssuer
+  testflight)
+    flutter build ios
+    cd ios
+    echo "[🚀] Building and uploading to TestFlight..."
+    fastlane beta
     ;;
   *)
     echo "[❓] Unknown command: `$1"
+    echo "Available commands: run, build, archive, validate, upload, testflight"
     ;;
 esac
 "@
@@ -319,13 +392,13 @@ try {
       }
       default {
         Write-Host "[❓] Unknown or missing command. Available commands:" -ForegroundColor Yellow
-        Write-Host "  init   - Initialize project (clone from Git or sync current directory)"
-        Write-Host "  sync   - Sync current project files to Mac"
-        Write-Host "  run    - Run Flutter app on connected iOS device"
-        Write-Host "  build  - Build iOS app"
-        Write-Host "  archive- Create archive for App Store"
-        Write-Host "  validate - Validate app with App Store"
-        Write-Host "  upload - Upload app to TestFlight"
+        Write-Host "  init      - Initialize project (clone from Git or sync current directory)"
+        Write-Host "  sync      - Sync current project files to Mac"
+        Write-Host "  run       - Run Flutter app on connected iOS device"
+        Write-Host "  build     - Build iOS app"
+        Write-Host "  archive   - Create archive for App Store"
+        Write-Host "  upload    - Build and upload to TestFlight"
+        Write-Host "  testflight- Build and upload to TestFlight (same as upload)"
       }
     }
 }
@@ -383,9 +456,10 @@ try {
     $config = @{
         MacIP = $macIP
         MacUser = $macUser
-        APIKey = $apiKey
-        APIIssuer = $apiIssuer
+        KeyID = $keyId
+        IssuerID = $issuerId
         TargetDir = $targetDir
+        PrivateKeyPath = "/Users/$macUser/.appstoreconnect/private_keys/AuthKey_$keyId.p8"
     }
     $config | ConvertTo-Json | Out-File -Encoding UTF8 "$cliPath\.ios-devkit-config.json"
     
@@ -397,6 +471,7 @@ catch {
 }
 
 Write-Host "\n🎉 Flutter iOS DevKit Installation Completed Successfully!" -ForegroundColor Green
-Write-Host "📝 Available commands: init, sync, run, build, archive, validate, upload" -ForegroundColor Cyan
+Write-Host "📝 Available commands: init, sync, run, build, archive, upload, testflight" -ForegroundColor Cyan
 Write-Host "🚀 Use 'flutter-ios' command to control your Mac from Windows!" -ForegroundColor Cyan
+Write-Host "🔐 Apple App Store Connect authentication configured with Key ID: $keyId" -ForegroundColor Cyan
 Write-Host "💡 Restart your PowerShell terminal to use the new commands." -ForegroundColor Yellow 
