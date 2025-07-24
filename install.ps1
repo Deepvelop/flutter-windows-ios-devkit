@@ -318,23 +318,42 @@ try {
     $keyFileName = "AuthKey_$keyId.p8"
     $macKeyPath = "/Users/$macUser/.appstoreconnect/private_keys/$keyFileName"
     
+    # Create the directory structure on Mac first
+    Write-Host "📁 Creating App Store Connect directory on Mac..."
+    $mkdirResult = ssh "$macUser@$macIP" "mkdir -p ~/.appstoreconnect/private_keys && chmod 700 ~/.appstoreconnect && chmod 700 ~/.appstoreconnect/private_keys"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create App Store Connect directory on Mac"
+    }
+    
     # Copy the private key to Mac
+    Write-Host "📋 Copying private key to Mac..."
     $scpResult = scp $privateKeyPath "${macUser}@${macIP}:$macKeyPath"
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to copy private key to Mac"
+        throw "Failed to copy private key to Mac. Check that the file path is correct: $privateKeyPath"
     }
     
     # Set proper permissions on the private key
+    Write-Host "🔒 Setting secure permissions on private key..."
     $sshResult = ssh "$macUser@$macIP" "chmod 600 $macKeyPath"
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to set permissions on private key"
     }
     
-    Write-Host "✅ Apple private key installed successfully" -ForegroundColor Green
+    # Verify the key was copied correctly
+    $verifyResult = ssh "$macUser@$macIP" "ls -la $macKeyPath"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Apple private key installed and verified successfully" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Private key copied but verification failed" -ForegroundColor Yellow
+    }
 }
 catch {
     Write-Host "❌ Error installing Apple private key: $_" -ForegroundColor Red
-    Write-Host "💡 Make sure your private key file path is correct and accessible" -ForegroundColor Yellow
+    Write-Host "💡 Troubleshooting private key issues:" -ForegroundColor Yellow
+    Write-Host "   1. Verify the file exists: $privateKeyPath" -ForegroundColor White
+    Write-Host "   2. Check file permissions on Windows" -ForegroundColor White
+    Write-Host "   3. Ensure SSH connection to Mac is working" -ForegroundColor White
+    Write-Host "   4. Try copying manually: scp `"$privateKeyPath`" ${macUser}@${macIP}:~/AuthKey_$keyId.p8" -ForegroundColor White
     exit 1
 }
 
